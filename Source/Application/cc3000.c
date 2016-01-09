@@ -219,7 +219,7 @@ init_wifiDriver(void)
 		// all  cc3000 api will work only after successful SPI initialization /enabling SimpleLink .
 		//	All CC3000 api() {except wlan_init()api }  wait for SimpleLinkWaitEvent(HCI_Cmd_Name, &retval).
         //
-        ret=init_spi();
+        ret=init_spi(); //configure spi_B(ucB0)  for wlan.
         if(ret)
         {
         	return -2;

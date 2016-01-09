@@ -39,19 +39,51 @@ void restartMSP430()
 //!  \return none
 //!
 //!  \brief :
+//!
+//!       For CPU:   there is one single clock signal.
+//!
+//! 			 MCLK,  master clock is used by the cpu & system.
+//!
+//		For Peripherals:   two clock signals are available, and each peripheral need to be configured to select one of these signal as their active clock source.
+//!
+//! 			SMCLK, subsystem master clock  is used by peripherals. ( each peripheral)
+//!				ACLK,  Auxilliary clock is  used by peripherals ( configurable for each peripheral)
 //
+//!            These clock signals can select one of any of the following clock sources.
+//!			 Moreover these clock signals  can be configured to select the the clock comming from the selected clock after getting divided by one of the divisors(1,2,4,8,16,32).
+//!
+//!		Available Clock Sources in MSP430:
+//!		External sources:
+//!						XT1CLK(low frequency crystal-3.27 Mhz watch crystal)  & XT2CLK(high frequency crystal-24Mhz) : both are on the same pins in this device.
+//!     INTERNAL Sources:
+//!                      DCO (Digitally controlled Oscillator)  && VLO (low frequency oscillator-very low power, very low frequency 10khz).
+//!						 DCO has three selectable fixed frequencies.
+
+//!
 //*****************************************************************************
 void initClk(void)
 {
 
-  // SMCLCK which will source also SPI will be sourced also by DCO, ACLK sourced by VLO.
-    //
+	// MCLK (master clock)  used by cpu , is being sourced by DCO here.
+  // SMCLCK   used by SPI_B(ucB0) for wlan, is being   sourced  by DCO. (configuration for spi_b used for wlan  to select smclk done in init_spi() in spi.c)
+ //  ACLK   used by other peripherals is sourced by VLO.
+   //
+
+	// set ACLK=VLO, the SMCLK = DCO,   MCLK= DCO
+	// divisor=1
+	// password = 0xA5  ( fix value by default).
 
 
-    CSCTL0_H = 0xA5;	//PSWD LOCK KEY
+	//CSCTL0 REGISTER: PASSWORD TO UNLOCK  CS REGISTERS.
+    CSCTL0_H = 0xA5;	//PSWD unLOCK KEY  to unlock access to CS(clock system) registers
 
+    //CSCTL1 REGISTER: DCO range select register.
     CSCTL1 |= DCORSEL + DCOFSEL0 + DCOFSEL1;	 // Set max. DCO setting// 24MHZ
-    CSCTL2 = SELA_1 + SELS_3 + SELM_3;		// set ACLK - VLO, the SMCLK = MCLK = DCO
+
+    //CSCTL2 REGISTER: Select  aux clk(SELA), select SMCLK(SELS), select master clk(SELM).
+    CSCTL2 = SELA_1 + SELS_3 + SELM_3;		// set ACLK=VLO,  SMCLK = DCO,   MCLK= DCO
+
+    //CSCTL3 REGISTER: Divisor Select.
     CSCTL3 = DIVA_0 + DIVS_0 + DIVM_0;		// set all dividers to 0
 
 }
