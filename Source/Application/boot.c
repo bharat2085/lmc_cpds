@@ -19,6 +19,7 @@
 
 extern void appMain();
 extern int init_wifiDriver(void);
+void reset_CC3000();
 
 
 /*
@@ -33,8 +34,10 @@ systest_app()
 
 		ret= ConnectWithWellKnownAP();
 		if(ret)
-		while(1)
+		while(1){
 		__no_operation();
+		fatal();
+		}
 
 }
 
@@ -61,9 +64,17 @@ void  bootMain()
 	//
 					gpio_init();
 
+					turnLedOn(1);
+					__delay_cycles(5000000);
+					turnLedOff(1);
+
+
+
 					#ifdef RUN_APP
 					misc_init_r(); 						//currently blank.
 					#endif
+
+
 
 				  //init drivers.
 
@@ -72,17 +83,31 @@ void  bootMain()
 			         //  init_console(); //
 
 			         init_wifiDriver();
+			        // reset_CC3000();
 
-			         turnLedOn(SYSLED1); 				//to indicate that we are active and initiated WLAN successfully
+			         turnLedOn(1);
+			         __delay_cycles(5000000); 				//to indicate that we are active and initiated WLAN successfully
+			         turnLedOff(1);
+
+
+			        // reset_CC3000();
 
 					#ifdef RUN_APP
 			         misc_init_s();						//currently blank.
 					#endif
 
-			         //unsolicicted_events_timer_init();	// not required in the newer service packs of cc3000.
 
 
-			         //__bis_SR_register(GIE);
+
+			         //__bis_SR_register(GIE);  //
+
+
+			         __delay_cycles(5000000);
+			         turnLedOn(1);
+			         __delay_cycles(3000000);
+			         turnLedOff(1);
+
+
 
 					#ifdef RUN_APP
 			         appMain();
@@ -109,31 +134,3 @@ void  bootMain()
 
 
 }
-
-
-
-/*
-void
-Print_fw_version_number()
-{
-
-//
-	// Generate the event to CLI: send a version string
-	/
-	//DispatcherUartSendPacket(pucUARTExampleAppString, sizeof(pucUARTExampleAppString));
-        version_string[0]= 0x30 + PALTFORM_VERSION;
-        version_string[1]= '.';
-        version_string[2]= 0x30 + APPLICATION_VERSION_NUMBER_1;
-        version_string[3]= 0x30 + APPLICATION_VERSION_NUMBER_2;
-        version_string[4]= '.';
-        version_string[5] = 0x30 + SPI_VERSION_NUMBER;
-        version_string[6]= '.';
-        version_string[7]= 0x30 + DRIVER_VERSION_NUMBER_1 ;
-        version_string[8]= 0x30 + DRIVER_VERSION_NUMBER_2 ;
-        version_string[9]=  '\n';
-		version_string[10]=	'\r';
-        //DispatcherUartSendPacket(version_string, SL_VERSION_LENGTH);
-}
- *
- *
- */

@@ -1,8 +1,10 @@
+
 /*
  * snet.c
  *
  *  Created on: 01/08/2014
- *  Last Modified: 10/09/2014
+ *  Modified on: 10/09/2014
+ *  Last Modified:
  *      Author: bharat bhushan
  */
 
@@ -17,20 +19,27 @@
 #include "wlan.h"
 #include "cc3000.h"
 #include "string.h"
-
+extern uint8 uiCC3000Connected,uiCC3000DHCP;
 typedef signed char int8;
+
+#define BIND_SOCKET_TYPE   1
+#define NOBIND_SOCKET_TYPE 0
+
+
 
 #define WLAN_CONNECT_USING_PROFILE
 
 
-#define RX_BUFFER_OVERHEAD   (20)
+#define RX_BUFFER_OVERHEAD   20
 #define RX_BUF_LEN 			 30
 #define TX_BUF_LEN 			 20
 
-
-
+#define ANY_IP				0
+#define ANY_PORT			0
 #define AGENTS_COMMON_PORT       5000
 #define MGR_PORT				 5099
+
+
 
 unsigned char mgr_ip[4]= {192,168,39,2};
 
@@ -51,7 +60,15 @@ wait_for_connection()
 	          while ((uiCC3000DHCP == 0) || (uiCC3000Connected == 0))
 	           {
 
-	                __delay_cycles(100000);
+	                __delay_cycles(12000000);
+
+					//#ifdef WLAN_TEST_MODE
+	                if(!uiCC3000Connected)
+	                toggleLed(2);
+	                if(!uiCC3000DHCP)
+	                toggleLed(3);
+					//#endif
+
 	                //hci_unsolicited_event_handler();							//This is not required for newer sp(FW).  */
 	           }
 }
@@ -73,21 +90,33 @@ int senddata_to(char *buffer, int len, unsigned char* destip, int port)
 		  sockAddr.sa_data[0] = (port & 0xFF00)>>8;
 		  sockAddr.sa_data[1] = (port & 0x00FF);
 
-
 		  sockAddr.sa_data[2] =	destip[0];
 		  sockAddr.sa_data[3] =	destip[1];
 		  sockAddr.sa_data[4] =	destip[2];
 		  sockAddr.sa_data[5] =	destip[3];
 
 
-		  memset(buffer, 0, len);
 
 		  ret=sendto( hSocket_TX, buffer, len, 0, &sockAddr, sizeof(sockAddr));
-		  if(ret<0){
+		  if(ret==-1){
 				//error
-				_no_operation();
-				return 0;
+			  _no_operation();
+			  turnLedOn(4);
+			  fatal();
+				return 0;  //if need to return , though shouldnt.
+		  }else
+		  {
+			  //success
+			  _no_operation();
+			  while(ret--){
+			  turnLedOn(4);
+			  __delay_cycles(3000000);
+			  turnLedOff(4);
+			  __delay_cycles(7000000);
+			  }
 		  }
+
+
 
 	return ret;
 }
@@ -102,27 +131,26 @@ rcvdata_from( char* buffer, uint8 len,  int ip, int port )
 		if(hSocket_RX < 0)
 		return -1;
 
-	socklen_t addrlen = sizeof(sockaddr);
+		 memset(buffer, 0, len);
 
+	socklen_t addrlen = sizeof(sockaddr);
 	  memset(&sockAddr,0, sizeof(sockaddr));
 
 	  sockAddr.sa_family = AF_INET;
-
 	  // the source port
 	  sockAddr.sa_data[0] = (port & 0xFF00)>>8;
 	  sockAddr.sa_data[1] = (port & 0x00FF);
 
 	  memset(&sockAddr.sa_data[2], 0, 4); //rcv from any ip.
-	  memset(buffer, 0, len);
+
 
 	  ret=recvfrom( hSocket_RX, buffer, len, 0, &sockAddr, &addrlen);
 	  if(ret>=1){
-
-	      	 // addrlen=sizeof(sockaddr);
 		  	  	  __no_operation();
-		  	  	  	  	  turnLedOn(SYSLED2);
+
+		  	  	  	  	  turnLedOn(5);
 		  	    		 __delay_cycles(22000000);
-		  	    		turnLedOff(SYSLED2);
+		  	    		turnLedOff(5);
 	  	  }
 	  	  	else if(ret==0){
 
@@ -131,14 +159,11 @@ rcvdata_from( char* buffer, uint8 len,  int ip, int port )
 
 	        }
 	        else if(ret<0) {
-
+	        	 turnLedOn(5);
 	        		__no_operation();
-	                      //do error handling
-	        		turnLedOn(SYSLED0);
-	        	 __delay_cycles(22000000);
-	        		turnLedOff(SYSLED0);
+	                  fatal();
 
-	        		ret=0;
+	        		ret=0;   //if need to return , data is zero, though shouldnt return.
 	            }
 
 
@@ -149,19 +174,60 @@ void
 test_rcv_data()
 {
 
-	rcvdata_from(rxbuffer, RX_BUF_LEN, 0, AGENTS_COMMON_PORT );
+	rcvdata_from(rxbuffer, RX_BUF_LEN,  ANY_IP, ANY_PORT );
 }
 
 void
 test_send_data_to(unsigned char destip)
 {
-	char txbuffer[TX_BUF_LEN];
-	unsigned char ip[4] = {192,168,39,0};
+	char txbuffer[TX_BUF_LEN]="Welcome Data MSP430!";
+	unsigned char ip[4] = {192,168,11,0};
 
 
 	ip[3] = destip;
 
-	senddata_to(txbuffer, TX_BUF_LEN, ip, MGR_PORT );
+	senddata_to(txbuffer,TX_BUF_LEN, ip, MGR_PORT ); //TX_BUF_LEN
+}
+
+
+int8
+test_dataLink(unsigned char destip)
+{
+	//char* pbuffer = rxbuffer ;
+	int ret,bytes_rcvd;
+	unsigned char ip[4] = {192,168,11,0};
+
+    ip[3] = destip;		//destip
+
+
+    bytes_rcvd = rcvdata_from(rxbuffer, RX_BUF_LEN, ANY_IP, ANY_PORT );
+    if(bytes_rcvd)
+    {
+
+    	ret= senddata_to(rxbuffer, TX_BUF_LEN, ip, MGR_PORT );
+    	if(ret<0)
+		return -1;
+
+    	if(bytes_rcvd > TX_BUF_LEN){
+		ret= senddata_to( (rxbuffer+ TX_BUF_LEN), (RX_BUF_LEN -TX_BUF_LEN), ip, MGR_PORT );
+		if(ret<0)
+			return -1;
+    	}
+
+
+    	while(bytes_rcvd--){
+			turnLedOn(5);
+	    	__delay_cycles(300000);
+	    	turnLedOff(5);
+	    	__delay_cycles(700000);
+		}
+
+
+   }
+
+
+
+	return 0;
 }
 
 
@@ -183,7 +249,7 @@ receive_msg_from_Mgr(Msg *msg)
 		*/
 
 
-ret	=   rcvdata_from( rxbuffer, buf_len, 0, AGENTS_COMMON_PORT );
+ret	=   rcvdata_from( rxbuffer, buf_len, 0, ANY_PORT );
 		if(ret>= SIZE_STRUCT_MSG)
 		{
 
@@ -272,10 +338,10 @@ set_netapp_timeouts()
     int ret;
 	unsigned long aucDhcp,aucArp, aucKeepalive,aucInactivity;
 
-    aucDhcp=14400;
-    aucArp=3600;
-    aucKeepalive=60;
-    aucInactivity=20; 		//2 *60 seconds
+    aucDhcp=14400;			//default value- 4hours.
+    aucArp=120;			    //dont know its use.set randomly- 2min.
+    aucKeepalive=0;			//keepalive not required currently.
+    aucInactivity=0; 		//socketinactivity=infinity, as socket should never close.
 
     ret= netapp_timeout_values( &aucDhcp, &aucArp, &aucKeepalive, &aucInactivity);
     if(ret!=0)
@@ -314,7 +380,7 @@ setsockopt_rcv_timeout( unsigned long timeout )
 //
 //*****************************************************************************
 int8
-OpenUdpPort_Mgr(long *ptrSd, int port )
+OpenUdpPort_Mgr(long *ptrSd, int port, int8 type_rx )
 {
 	     int8 ret=0;
 
@@ -354,8 +420,9 @@ OpenUdpPort_Mgr(long *ptrSd, int port )
 
                      }
 
+if(type_rx){
 
-        // bind socket to listen on the port defined for this app.
+					// bind socket to listen on the port defined for this app.
 
                       	memset(&sockAddr,0, sizeof(sockaddr));
 
@@ -378,29 +445,37 @@ OpenUdpPort_Mgr(long *ptrSd, int port )
                      // prints("\r Error : binding socket\n");
                       fatal();
                     }
+  }
+
 
 
 return ret;
 }
 
-int8
-open_txPort_Mgr()
-{
-	int8 ret;
-ret= OpenUdpPort_Mgr( &hSocket_TX , MGR_PORT);
 
-	return ret;
-}
 
 int8
 open_rxPort_Mgr()
 {
 	int8 ret;
 
-ret=	OpenUdpPort_Mgr( &hSocket_RX, AGENTS_COMMON_PORT);
+ret=	OpenUdpPort_Mgr( &hSocket_RX, AGENTS_COMMON_PORT, BIND_SOCKET_TYPE);
 
 	return ret;
 }
+
+
+int8
+open_txPort_Mgr()
+{
+	int8 ret;
+ret= OpenUdpPort_Mgr( &hSocket_TX , ANY_PORT, NOBIND_SOCKET_TYPE);
+
+	return ret;
+}
+
+
+
 
 void
 testconnect_unsecured()
@@ -425,18 +500,23 @@ testconnect_unsecured()
 void
 testconnect_secured_wep()
 {
-int ret;
+int ret=5;
 // Disable Profiles and Fast Connect
-ret= wlan_ioctl_set_connection_policy(0,0,0);
+ret= wlan_ioctl_set_connection_policy(0,0,0);    //auto reconnect mode(3.UseProfiles) not supported for wlan_connect -connect but returns (-2)  fatal error in wlan_connect,(2.)fast connect no error,doesnt reconnect on signal reentry  but reset reconnect work.
 if(ret){
           prints("\r Error : set connection policy \n");
-         while(1);
-        //  fatal();
+         while(1)
+          fatal();
         }
 
-
-ret=wlan_connect(WLAN_SEC_WEP,"BSNL_AP",7,
-                   NULL, "INDIA", 5);
+reset_CC3000();
+/*ret=wlan_connect(WLAN_SEC_WEP,"BSNL_AP",7,
+                   NULL, "INDIA", 5);*/			 	//sendto not working with wep .
+/*
+ret=wlan_connect(WLAN_SEC_UNSEC,"BSNL_AP",7,
+                   NULL, NULL, 0);*/  				//send working fine with open(unsecured).
+ret=wlan_connect(WLAN_SEC_WPA2,"BSNL_AP",7,
+                   NULL, "testindia", 9);			//send working fine with  wpa2
         if(ret)
         {
           //prints(" Error : connecting with AP\n");
@@ -451,18 +531,45 @@ ret=wlan_connect(WLAN_SEC_WEP,"BSNL_AP",7,
 signed char
 ConnectWithWellKnownAP()
 {
-	signed char ret;
-
+	signed char ret=-1;
 
 wlan_disconnect();
-wlan_ioctl_del_profile(255);
- ret=wlan_add_profile(WLAN_SEC_WEP,"BSNL_AP",7, NULL,0 ,5, 0,1,"INDIA", 0);
- if(ret)
+ret=wlan_ioctl_del_profile(255);
+if(ret)
  fatal();
- wlan_disconnect();
- wlan_ioctl_set_connection_policy(0,1,1); //only fast connect , DONT USE  open ap.
- wlan_disconnect();
- //reset CC3000 to apply policy.
+
+ret= wlan_ioctl_set_connection_policy(0,0,0);
+if(ret)
+ fatal();
+
+reset_CC3000();
+wlan_disconnect();
+
+ret=wlan_add_profile(WLAN_SEC_WPA2,"BSNL_AP",7, NULL, 0, 0x18, 0x1e, 2,"testindia", 9); //working
+if(ret<0)
+ fatal();
+/*
+ ret=wlan_add_profile(WLAN_SEC_WEP,"BSNL_AP",7, NULL,0 ,5, 0,1,"INDIA", 0);
+ if(ret<0)
+ fatal();
+
+ ret=wlan_add_profile(WLAN_SEC_WPA,"BSNL_AP",7, NULL,0 ,0, 0,1,"testindia", 9); //not able to connect TODO: try more
+  if(ret<0)
+   fatal();*/
+
+
+ /*ret=wlan_add_profile(WLAN_SEC_UNSEC,"BSNL_AP",7, NULL,0 ,0, 0,1,NULL, 0);
+  if(ret<0)
+  fatal();*/
+//
+ //wlan_disconnect();
+
+ret= wlan_ioctl_set_connection_policy(0,1,1); // autoconnect mode, only fast connect  & using profiles, DONT USE  open ap.
+if(ret)
+ fatal();
+
+
+//reset CC3000 to apply policy.
          reset_CC3000();
 
 

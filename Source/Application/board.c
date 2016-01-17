@@ -662,7 +662,7 @@ void fatal()
   prints("\r FATAL ERROR  :\n");
 #endif*/
 
-  turnLedOn(SYSLED0);
+  turnLedOn(8);
 
 //restart system,
   while(1)

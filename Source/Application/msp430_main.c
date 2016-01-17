@@ -78,13 +78,14 @@ void initClk(void)
     CSCTL0_H = 0xA5;	//PSWD unLOCK KEY  to unlock access to CS(clock system) registers
 
     //CSCTL1 REGISTER: DCO range select register.
-    CSCTL1 |= DCORSEL + DCOFSEL0 + DCOFSEL1;	 // Set max. DCO setting// 24MHZ
+    CSCTL1 |= DCORSEL+ DCOFSEL1 + DCOFSEL0 ;  // DCO = 24Mhz
+
 
     //CSCTL2 REGISTER: Select  aux clk(SELA), select SMCLK(SELS), select master clk(SELM).
     CSCTL2 = SELA_1 + SELS_3 + SELM_3;		// set ACLK=VLO,  SMCLK = DCO,   MCLK= DCO
 
     //CSCTL3 REGISTER: Divisor Select.
-    CSCTL3 = DIVA_0 + DIVS_0 + DIVM_0;		// set all dividers to 0
+    CSCTL3 = DIVA_0 + DIVS_1 + DIVM_0;		// smclk divided by 2, all other same as dco.
 
 }
 
@@ -134,7 +135,7 @@ void main(void)
 
 	//  SYSTEM CLOCK  Initialization .
 			initClk();
-			__delay_cycles(110000);   ////wait for System Clock Stablization.
+			__delay_cycles(1000);   ////wait for System Clock Stablization.
 
 
 	#ifndef _DEBUG_MSP_TESTBOOT

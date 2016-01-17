@@ -67,7 +67,7 @@ void CC3000_AsyncEventCallback(long lEventType, char * data, unsigned char lengt
 
 
 		#ifdef WLAN_TEST_MODE
-         turnLedOn(7);
+         turnLedOn(2);
 		#endif
 	}
 
@@ -76,7 +76,7 @@ void CC3000_AsyncEventCallback(long lEventType, char * data, unsigned char lengt
 		uiCC3000Connected = 0;
 
 		#ifdef WLAN_TEST_MODE
-           turnLedOff(7);
+           turnLedOff(2);
 		#endif
 	}
 
@@ -84,7 +84,7 @@ void CC3000_AsyncEventCallback(long lEventType, char * data, unsigned char lengt
 	{
 		uiCC3000DHCP = 1;
 		#ifdef WLAN_TEST_MODE
-                turnLedOn(6);
+                turnLedOn(3);
 		#endif
 	}
 
@@ -105,12 +105,12 @@ reset_CC3000()
         wlan_stop();
 
         //
-         __delay_cycles(410000);   // 1 msecond delay
+         __delay_cycles(6000000);   // 250ms delay is must for reset to work properly.
 
         // Reenable/restart  the CC3000 device.
         //
         wlan_start(0);
-         __delay_cycles(410000);   // 1 msecond delay
+        // __delay_cycles(1000);   // 1 msecond delay
 
 
 }
@@ -185,16 +185,16 @@ char *sendWLFWPatch(unsigned long *Length)
 //!  \brief  The function initializes wifi device and triggers it to start operation.
 //!
 //! it performs following tasks.
-//! 1. Setup SPI on Ucontroller to communicate with CC3000 wifi module. ( intialize_gpio() and init_spi() )
-//! 2. Register various callback functions with the driver framework ( hci layer) , for
+//! 1. init_spi(): Setup SPI on Ucontroller to communicate with CC3000 wifi module. (intialize_gpio() must be done beforehand).
+//! 2. wlan_init():Register various callback functions with the host side driver framework ( hci layer) , for
 //!     >reading status on IRQ line,
 //!     >enable/disable wlan_ena/ pwr_ena line,
 //!     > enable/disable local gpio interrupt of MSP430 Input line connected with of wlan IRQ on board.
 //!		> CC3000_UsyncEventCallback.
-//! 3. calls wlan_start(): which Enables wifi chip by starting the initialization of CC3000 chip hardware. as follows
+//! 3. wlan_start(): which Enables wifi chip by starting the initialization of CC3000 chip hardware. as follows
 //!		>  calls spi_open() : which register the spi interrupt handler and makes MSP430 gpio spi IRQ interrupt enabled.
 //!		>  Enables wifi chip by asserting pwr_ena/wlan_ena signal and then monitors IRQ for high to low.
-//!		> sends SimpleLinkInitStart command through the working spi . And wait for the response of the command.
+//!		> sends SimpleLinkInitStart command to CC3000 chip through the working spi . And wait for the response of the command.
 //!
 //
 //*****************************************************************************
@@ -212,6 +212,8 @@ init_wifiDriver(void)
 		return -1;  //error
 	}
 
+
+
 		//
         //initialize SPI bus.
 		//
@@ -225,12 +227,15 @@ init_wifiDriver(void)
         	return -2;
         }
 
+
+
 	//
 	// Register various callback with HostDriver framework  for
     //		1.	 processing  not masked asynchronous Event.
     //		2.	 msp430 bsp functions for cc3000 interrupt pin and wlan_Enable pin
    //
        wlan_init( CC3000_AsyncEventCallback, sendWLFWPatch, sendDriverPatch, sendBootLoaderPatch, ReadWlanInterruptPin, WlanInterruptEnable, WlanInterruptDisable, WriteWlanPin);
+
 
 	//
 	// Starts the CC3000 Wifi chip  to become enabled for wifi operations.
@@ -248,6 +253,43 @@ init_wifiDriver(void)
 		  }
 
 
+
+	/*
+
+	nvmem_read_sp_version(patchVer);
+	patchid=patchVer[0];
+	patchversion=patchVer[1];
+
+	Print_fw_version_number()
+
+	 */
+
     return(0);
 }
+
+/*
+void
+Print_fw_version_number()
+{
+
+//
+	// Generate the event to CLI: send a version string
+	/
+	//DispatcherUartSendPacket(pucUARTExampleAppString, sizeof(pucUARTExampleAppString));
+        version_string[0]= 0x30 + PALTFORM_VERSION;
+        version_string[1]= '.';
+        version_string[2]= 0x30 + APPLICATION_VERSION_NUMBER_1;
+        version_string[3]= 0x30 + APPLICATION_VERSION_NUMBER_2;
+        version_string[4]= '.';
+        version_string[5] = 0x30 + SPI_VERSION_NUMBER;
+        version_string[6]= '.';
+        version_string[7]= 0x30 + DRIVER_VERSION_NUMBER_1 ;
+        version_string[8]= 0x30 + DRIVER_VERSION_NUMBER_2 ;
+        version_string[9]=  '\n';
+		version_string[10]=	'\r';
+        //DispatcherUartSendPacket(version_string, SL_VERSION_LENGTH);
+}
+ *
+ *
+ */
 
